@@ -1,9 +1,11 @@
-use std::io::{self, Write, stdout, BufRead, BufReader};
+use std::io::{self, Write, stdout, BufRead, BufReader, BufWriter};
 use std::{fs::{File, self}, env, process::{Command}};
-use std::path::{Path};
+use std::path::{Path, PathBuf};
 use colored::*;
 use sysinfo::{ProcessExt, System, SystemExt, UserExt, DiskExt};
-use anyhow:: Result;
+use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
+use threadpool::ThreadPool;
 
 pub fn help() {
   println!("Commands: ('{}' means the command works '{}' means it's not and {} means it partially works)", "Red".truecolor(255, 0, 80), "Violet".truecolor(80, 16, 94), "Yellow".truecolor(200, 220, 0));
@@ -21,128 +23,6 @@ pub fn help() {
   println!("    {}      -     get info about the target computer", "info".truecolor(255, 0, 80));
 }
 
-pub fn remove() {
-  println!("Enter path to directory/file to remove:");
-  print!("{}", "     rm > ".truecolor(120, 120, 120));
-  io::stdout().flush().unwrap();
-  let mut input = String::new();
-  io::stdin().read_line(&mut input).unwrap();
-  let input = input.trim();
-  println!();   
-  if let Err(e) = fs::remove_dir_all(input) {
-    println!("        Error: {}", e);
-  } else {
-    println!("        Removed: {}", input);
-  }
-}
-
-pub fn whereis() {
-    //find the current directory
-    let path = std::env::current_dir().unwrap();
-    println!("        Current directory: {}", path.display());
-}
-
-pub fn scan() {
-    // if file already exists, ask the user if they want to overwrite it
-    let path = Path::new("C:\\files");
-    fs::create_dir_all(path).unwrap();
-    let path = Path::new("C:\\files\\files.txt");
-    if path.exists() {
-        println!("        File already exists!");
-        println!("        Do you want to overwrite it? (y/n)");
-        print!("{}", "     scan > ".truecolor(120, 120, 120));
-        io::stdout().flush().unwrap();
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-        let input = input.trim();
-        println!();
-        if input == "y" {
-            fs::remove_file(path).unwrap();
-            println!("        Removed: {}", path.display());
-            println!("        Creating new folder...");
-
-            let success = [
-            "        Scan Complete!            ",
-            ];
-
-            //scan C: drive
-            let dir = Path::new("C:\\");
-            println!("        Creating new file...");
-            let mut file = File::create("C:\\files\\files.txt").unwrap(); // create in 'C:\files'
-            println!("        Created file: C:\\files\\files.txt");
-            let mut counter = 0;
-            println!();
-            println!("        This Might Take A While...");
-            scan_dir(&dir, &mut file, &mut counter).unwrap();
-            for line in &success {
-                println!("{}", line.truecolor(0, 255, 0));
-                stdout().flush().unwrap();
-            }
-        } else {
-            println!("        Aborting...");
-        }
-    } else {
-
-        //scan C: drive
-        let dir = Path::new("C:\\");
-        println!("        Creating new file...");
-        let mut file = File::create("C:\\files\\files.txt").unwrap(); // create in 'C:\files'
-        println!("        Created file: C:\\files\\files.txt");
-        let mut counter = 0;
-        println!();
-        println!("        This Might Take A While...");
-        scan_dir(&dir, &mut file, &mut counter).unwrap();
-        print!("{}", "        Scan Complete!            ".truecolor(0, 255, 0));
-        stdout().flush().unwrap();
-        println!();
-    }
-}
-
-fn scan_dir(dir: &Path, file: &mut File, counter: &mut i32) -> Result<(), Box<dyn std::error::Error>> {
-    //if *counter % 1 == 0 { // uncomment this line to change how often the 'counter' is updated
-        //print!("Scanning: {}{}\r", dir.display(), " ".repeat(70));
-        print!("        Scanned {} files {}\r", counter, " ".repeat(10));
-        stdout().flush().unwrap();
-    //}
-
-    // The rest of the code remains unchanged
-    let blacklisted_dirs: Vec<String> = vec![
-        "C:\\Windows".to_string(), 
-        "C:\\ProgramData\\Microsoft\\Windows\\Containers\\BaseImages".to_string(),
-        "C:\\Users\\All Users".to_string(),
-        "C:\\Documents and Settings".to_string(),
-        "C:\\ProgramData\\Application Data".to_string(),
-        "C:\\ProgramData\\Desktop".to_string(),
-        "C:\\ProgramData\\Documents".to_string(),
-        "C:\\ProgramData\\Start Menu".to_string(),
-        "C:\\ProgramData\\Templates".to_string(),
-        "C:\\Users\\Default".to_string(),
-        ];
-    if !blacklisted_dirs.contains(&dir.to_string_lossy().to_string()) {
-        match fs::read_dir(dir) {
-            Ok(entries) => {
-                for entry in entries.filter_map(|e| e.ok()) {
-                    let path = entry.path();
-                    if path.is_file() {
-                        file.write_all(format!("{}\n",path.to_string_lossy()).as_bytes())?;
-                        *counter += 1;
-                    } else if path.is_dir() {
-                        scan_dir(&path, file, counter)?;
-                    }
-                }
-                Ok(())
-            }
-            Err(e) => {
-                let mut log_file = File::create("error.log").unwrap();
-                writeln!(log_file, "Error reading directory {}: {}", dir.display(), e).unwrap();
-                Ok(())
-            }
-        }
-    } else {
-        Ok(())
-    }
-} 
-
 pub fn find() {
     //ask the user for the file to search for
     println!("Enter the file to search for:");
@@ -152,8 +32,8 @@ pub fn find() {
     io::stdin().read_line(&mut input).expect("Error reading input");
     let input = input.trim();
 
-    if std::path::Path::new("C:\\files\\files.txt").exists() {
-        let file = File::open("C:\\files\\files.txt").unwrap();
+    if std::path::Path::new("files.txt").exists() {
+        let file = File::open("files.txt").unwrap();
         let reader = BufReader::new(file);
 
         for line in reader.lines() {

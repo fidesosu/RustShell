@@ -6,7 +6,7 @@ use std::path::{Path};
 
 pub fn encrypt(
   key: &[u8; 32],
-  nonce: &[u8; 19],
+  nonce: &[u8; 24],
 ) -> Result<(), anyhow::Error> {
   print!("    File to encrypt: ");
   io::stdout().flush().unwrap();
@@ -53,7 +53,7 @@ pub fn encrypt(
   Ok(())
 }
 
-pub fn decrypt(key: &[u8; 32], nonce: &[u8; 19]) -> Result<(), anyhow::Error> {
+pub fn decrypt(key: &[u8; 32], nonce: &[u8; 24]) -> Result<(), anyhow::Error> {
   print!("    File to decrypt: ");
   io::stdout().flush().unwrap();
   let mut encrypted_file_path = String::new();

